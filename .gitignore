@@ -1,0 +1,26 @@
+# Python & Environment
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment Variables & Secrets
+.env
+.env.local
+
+# Database & Storage
+logs/*.db
+qdrant_storage/
+*.sqlite3
+
+# Corpus Data (ignoring large PDFs, preserving folder structure)
+data/corpus/*
+!data/corpus/.gitkeep
+
+# IDE & OS specific
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

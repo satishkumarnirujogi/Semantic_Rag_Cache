@@ -1,0 +1,152 @@
+[
+  {
+    "id": 1,
+    "question": "What is the primary contribution of Nemotron 3 Super?",
+    "reference_answer": "Nemotron 3 Super introduces an open and efficient MoE Hybrid Mamba-Transformer model designed specifically for agentic reasoning tasks.",
+    "source_document": "01_2604.12374_Nemotron_3_Super_Open,_Efficient_MoE_Hybrid_Mamba-Transformer_Model_for_Agentic_Reasoning.pdf"
+  },
+  {
+    "id": 2,
+    "question": "How does PEFT scale towards million personal models of trillion parameters?",
+    "reference_answer": "It explores Parameter-Efficient Fine-Tuning (PEFT) scaling behaviors to enable serving millions of personalized models efficiently on trillion-parameter backbones.",
+    "source_document": "01_2606.02437_On_the_Scaling_of_PEFT_Towards_Million_Personal_Models_of_Trillion_Parameters.pdf"
+  },
+  {
+    "id": 3,
+    "question": "What role does AI Co-Mathematician play in mathematical research?",
+    "reference_answer": "AI Co-Mathematician accelerates mathematicians by using agentic AI to suggest proofs, verify mathematical hypotheses, and explore formal statements.",
+    "source_document": "02_2605.06651_AI_Co-Mathematician_Accelerating_Mathematicians_with_Agentic_AI.pdf"
+  },
+  {
+    "id": 4,
+    "question": "What is the main concept behind Agent-Native Memory Systems?",
+    "reference_answer": "It proposes an agent-native memory architecture designed for long-term state retention, rapid retrieval, and structured experience management for autonomous LLM agents.",
+    "source_document": "02_2606.24775_Are_We_Ready_For_An_Agent-Native_Memory_System.pdf"
+  },
+  {
+    "id": 5,
+    "question": "What is Cola DLM and how does it handle language modeling?",
+    "reference_answer": "Cola DLM is a Continuous Latent Diffusion Language Model that generates text by performing diffusion directly in continuous latent spaces rather than discrete token predictions.",
+    "source_document": "03_2605.06548_Cola_DLM_Continuous_Latent_Diffusion_Language_Model.pdf"
+  },
+  {
+    "id": 6,
+    "question": "What approach does Hypothesis-Tree Refinement take for autonomous research?",
+    "reference_answer": "It uses a structured hypothesis-tree structure to systematically generate, refine, test, and filter scientific hypotheses autonomously.",
+    "source_document": "03_2606.11926_Toward_Generalist_Autonomous_Research_via_Hypothesis-Tree_Refinement.pdf"
+  },
+  {
+    "id": 7,
+    "question": "What optimization does Gated DeltaNet-2 introduce for linear attention?",
+    "reference_answer": "Gated DeltaNet-2 decouples the erase and write operations in linear attention mechanisms to improve state retention and model expressiveness.",
+    "source_document": "04_2605.22791_Gated_DeltaNet-2_Decoupling_Erase_and_Write_in_Linear_Attention.pdf"
+  },
+  {
+    "id": 8,
+    "question": "How does MiniMax-M2 achieve real-world intelligence with lower activation overhead?",
+    "reference_answer": "MiniMax-M2 uses sparse activation mechanisms to minimize active parameter counts while maintaining high performance on complex reasoning tasks.",
+    "source_document": "05_2605.26494_The_MiniMax-M2_Series_Mini_Activations_Unleashing_Max_Real-World_Intelligence.pdf"
+  },
+  {
+    "id": 9,
+    "question": "What architecture and target domain does ZAYA1-8B focus on?",
+    "reference_answer": "ZAYA1-8B is an 8B parameter model evaluated for open-weights performance on multilingual and general reasoning tasks.",
+    "source_document": "06_2605.05365_ZAYA1-8B_Technical_Report.pdf"
+  },
+  {
+    "id": 10,
+    "question": "What are Delta Attention Residuals and how do they benefit deep networks?",
+    "reference_answer": "Delta Attention Residuals modify standard residual connections to pass delta update signals across attention layers, stabilizing deep transformer training.",
+    "source_document": "07_2605.18855_Delta_Attention_Residuals.pdf"
+  },
+  {
+    "id": 11,
+    "question": "How do LLMs explore environments using Latent Distilling?",
+    "reference_answer": "LLMs compress environment dynamics into latent representations to guide exploration and policy learning more efficiently.",
+    "source_document": "08_2604.24927_Large_Language_Models_Explore_by_Latent_Distilling.pdf"
+  },
+  {
+    "id": 12,
+    "question": "What privacy implications arise from behavioral transfer in AI agents?",
+    "reference_answer": "Behavioral transfer can unintentionally leak user preferences and private interaction patterns across agent domains.",
+    "source_document": "09_2604.19925_Behavioral_Transfer_in_AI_Agents_Evidence_and_Privacy_Implications.pdf"
+  },
+  {
+    "id": 13,
+    "question": "What mechanism does AdapTime use for temporal reasoning in LLMs?",
+    "reference_answer": "AdapTime dynamically adjusts temporal context windows and time-anchored representations for time-sensitive reasoning.",
+    "source_document": "10_2604.24175_AdapTime_Adaptive_Temporal_Reasoning_in_LLMs.pdf"
+  },
+  {
+    "id": 14,
+    "question": "How does cross-architecture distillation work in TIDE for diffusion LLMs?",
+    "reference_answer": "TIDE distills knowledge from autoregressive teacher models into continuous diffusion student models to improve sampling speed and text quality.",
+    "source_document": "11_2604.26951_Turning_the_TIDE_Cross-Architecture_Distillation_for_Diffusion_LLMs.pdf"
+  },
+  {
+    "id": 15,
+    "question": "What is Cosmos 3 and what domain does it serve?",
+    "reference_answer": "Cosmos 3 is an omnimodal world model designed to simulate physical dynamics and visual environments for Physical AI applications.",
+    "source_document": "12_2606.02800_Cosmos_3_Omnimodal_World_Models_for_Physical_AI.pdf"
+  },
+  {
+    "id": 16,
+    "question": "How does MiniMax Sparse Attention reduce computational complexity?",
+    "reference_answer": "It restricts attention computation to dynamic block-sparse patterns, scaling long-context context windows with linear computational overhead.",
+    "source_document": "13_2606.13392_MiniMax_Sparse_Attention.pdf"
+  },
+  {
+    "id": 17,
+    "question": "What environment does Qwen-AgentWorld provide for LLM agents?",
+    "reference_answer": "Qwen-AgentWorld provides language-based simulated world models to train and evaluate generalist autonomous agents.",
+    "source_document": "14_2606.24597_Qwen-AgentWorld_Language_World_Models_for_General_Agents.pdf"
+  },
+  {
+    "id": 18,
+    "question": "What is evaluated in the benchmark paper 'Agents' Last Exam'?",
+    "reference_answer": "It presents a rigorous evaluation suite testing autonomous LLM agents across expert-level long-horizon planning and tool execution tasks.",
+    "source_document": "15_2606.05405_Agents'_Last_Exam.pdf"
+  },
+  {
+    "id": 19,
+    "question": "How does scaling the planning horizon achieve trillion-parameter equivalent performance with a 35B model?",
+    "reference_answer": "It demonstrates that expanding search depth and test-time planning compute allows a 35B agent to match or exceed much larger static models.",
+    "source_document": "16_2606.30616_Scaling_the_Horizon,_Not_the_Parameters_Trillion-Parameter_Performance_with_a_35B_Agent.pdf"
+  },
+  {
+    "id": 20,
+    "question": "How does MaxProof scale mathematical proof generation?",
+    "reference_answer": "MaxProof combines generative proof candidate generation with reinforcement learning trained verifiers to scale formal theorem proving.",
+    "source_document": "17_2606.13473_MaxProof_Scaling_Mathematical_Proof_with_Generative-Verifier_RL.pdf"
+  },
+  {
+    "id": 21,
+    "question": "What are the main findings in Ling and Ring 2.6 Technical Report?",
+    "reference_answer": "Ling and Ring 2.6 presents updates on multi-token prediction and ring-attention sequence parallel optimizations.",
+    "source_document": "18_2606.15079_Ling_and_Ring_2.6_Technical_Report.pdf"
+  },
+  {
+    "id": 22,
+    "question": "What is the architecture of Looped World Models?",
+    "reference_answer": "Looped World Models recycle state representations across iterative loops to perform latent mental simulations without increasing model size.",
+    "source_document": "19_2606.18208_Looped_World_Models.pdf"
+  },
+  {
+    "id": 23,
+    "question": "What key concept does Orca introduce for agent internal simulation?",
+    "reference_answer": "Orca proposes mental simulation models where agents construct internal mental world states to evaluate action choices prior to execution.",
+    "source_document": "20_2606.30534_Orca_The_World_is_in_Your_Mind.pdf"
+  },
+  {
+    "id": 24,
+    "question": "What is the core focus of hybrid Mamba-Transformer models?",
+    "reference_answer": "Combining state-space sequence modeling (Mamba) with global self-attention (Transformer) to maximize context efficiency and reasoning capacity.",
+    "source_document": "01_2604.12374_Nemotron_3_Super_Open,_Efficient_MoE_Hybrid_Mamba-Transformer_Model_for_Agentic_Reasoning.pdf"
+  },
+  {
+    "id": 25,
+    "question": "Why is PEFT important for personalizing large models?",
+    "reference_answer": "PEFT allows fine-tuning lightweight task adapters for specific users without updating or storing full copies of trillion-parameter base models.",
+    "source_document": "01_2606.02437_On_the_Scaling_of_PEFT_Towards_Million_Personal_Models_of_Trillion_Parameters.pdf"
+  }
+]
