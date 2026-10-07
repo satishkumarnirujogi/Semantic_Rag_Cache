@@ -14,15 +14,15 @@ from router import route_and_generate, classify_query_route
 from logger import log_request, init_db
 
 app = FastAPI(
-    title="RAG Semantic Cache & Cost-Aware Router API",
+    title="German Law Multilingual RAG & Semantic Cache API",
     version="2.0",
-    description="Production-grade RAG pipeline with Qdrant semantic caching, intelligent routing, escalation safety net, and SQLite telemetry logging."
+    description="Multilingual German Law RAG platform with Qdrant semantic caching, cost-aware routing, and source provenance."
 )
 
 class QueryRequest(BaseModel):
     query: str
     top_k: Optional[int] = 5
-    similarity_threshold: Optional[float] = 0.85
+    similarity_threshold: Optional[float] = 0.88
     use_cache: Optional[bool] = True
     tenant_id: Optional[str] = "default_tenant"
 
@@ -35,6 +35,7 @@ class QueryResponse(BaseModel):
     cost: float
     latency_ms: float
     retrieved_chunks: List[Dict[str, Any]]
+    sources: Optional[List[Dict[str, Any]]] = []
 
 @app.on_event("startup")
 def startup_event():
@@ -47,13 +48,13 @@ def startup_event():
 def root():
     return {
         "status": "online",
-        "service": "RAG Semantic Cache & Cost-Aware Router API",
+        "service": "German Law Multilingual RAG & Semantic Cache API",
         "version": "2.0"
     }
 
 @app.post("/ingest")
-def trigger_ingest(force: bool = False):
-    total = ingest_corpus(force=force)
+def trigger_ingest(reset: bool = False):
+    total = ingest_corpus(reset=reset)
     return {"status": "success", "total_points": total}
 
 @app.post("/query", response_model=QueryResponse)
@@ -89,23 +90,30 @@ def query_endpoint(request: QueryRequest):
                 escalated=False,
                 cost=0.0,
                 latency_ms=round(latency_ms, 2),
-                retrieved_chunks=[]
+                retrieved_chunks=[],
+                sources=cached_result.get("sources", [])
             )
 
     # 2. Retrieve Relevant Context Chunks
     chunks = retrieve_chunks(query_str, top_k=request.top_k)
 
+    sources = []
+    seen = set()
+    for c in chunks:
+        key = (c.get("source", "unknown"), c.get("page", 1))
+        if key not in seen:
+            seen.add(key)
+            sources.append({"source": key[0], "page": key[1]})
+
     # 3. Route & Generate Answer (with Escalation Safety Net)
-    initial_route = classify_query_route(query_str)
     answer, model_used, stats, escalated = route_and_generate(query_str, chunks)
 
-    # 4. Update Semantic Cache with fresh response and tenant scope
+    # 4. Update Semantic Cache with fresh response, sources, and tenant scope
     if request.use_cache:
-        put_cache(query_str, answer, model_used=model_used, tenant_id=tenant_id)
-
+        put_cache(query_str, answer, sources=sources, model_used=model_used, tenant_id=tenant_id)
 
     latency_ms = (time.time() - start_time) * 1000.0
-    route_name = "escalated" if escalated else ("large" if "gpt" in model_used else "small")
+    route_name = "escalated" if escalated else ("large" if "gpt" in model_used or "luna" in model_used else "small")
 
     # 5. Log telemetry metrics to SQLite DB
     log_request(
@@ -128,7 +136,8 @@ def query_endpoint(request: QueryRequest):
         escalated=escalated,
         cost=stats.get("cost", 0.0),
         latency_ms=round(latency_ms, 2),
-        retrieved_chunks=chunks
+        retrieved_chunks=chunks,
+        sources=sources
     )
 
 if __name__ == "__main__":

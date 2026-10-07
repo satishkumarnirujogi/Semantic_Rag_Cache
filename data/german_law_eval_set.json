@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "question": "How many days per calendar year are international students from third countries allowed to work in Germany?",
+    "reference_answer": "According to § 16b AufenthG (amended by the Skilled Immigration Act 2024), international students from third countries may work up to 140 full days or 280 half days per calendar year without requiring approval from the Federal Employment Agency (BA).",
+    "source_document": "202406_Studierende_Fachkraefteeinwanderung.pdf"
+  },
+  {
+    "id": 2,
+    "question": "Wie viele Tage dürfen internationale Studierende aus Drittstaaten in Deutschland pro Kalenderjahr arbeiten?",
+    "reference_answer": "Internationale Studierende aus Drittstaaten dürfen gemäß § 16b AufenthG seit dem 1. März 2024 bis zu 140 volle Tage bzw. 280 halbe Tage pro Kalenderjahr arbeiten.",
+    "source_document": "202406_Studierende_Fachkraefteeinwanderung.pdf"
+  },
+  {
+    "id": 3,
+    "question": "What health insurance is required for international students in Germany to enroll in university?",
+    "reference_answer": "International students must have statutory health insurance (gesetzliche Krankenversicherung) or recognized private health insurance coverage to register and maintain university enrollment in Germany.",
+    "source_document": "Health-Insurance-Infos_ASTP.pdf"
+  },
+  {
+    "id": 4,
+    "question": "Which documents are necessary to apply for a residence permit for study purposes (§ 16b AufenthG)?",
+    "reference_answer": "Applicants need a valid passport, certificate of enrollment or admission letter, proof of secure livelihood/blocked account, proof of adequate health insurance, and a biometric passport photo.",
+    "source_document": "info_aufenthaltserlaubnis_zum_studium_beantra.pdf"
+  },
+  {
+    "id": 5,
+    "question": "Darf eine studentische Nebentätigkeit an der Hochschule über die 140-Tage-Regelung hinaus ausgeübt werden?",
+    "reference_answer": "Ja, studentische Nebentätigkeiten an der Hochschule oder an wissenschaftlichen Einrichtungen dürfen ohne zeitliche Begrenzung auf die 140 Tage und ohne Zustimmung der Bundesagentur für Arbeit ausgeübt werden.",
+    "source_document": "Aufenthaltsrecht-fuer-internationale-Studierende-Deutsch-Englisch.pdf"
+  }
+]

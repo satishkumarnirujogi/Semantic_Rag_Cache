@@ -18,6 +18,8 @@ qdrant_storage/
 # Corpus Data (ignoring large PDFs, preserving folder structure)
 data/corpus/*
 !data/corpus/.gitkeep
+data/pdfs/*
+!data/pdfs/.gitkeep
 
 # IDE & OS specific
 .vscode/

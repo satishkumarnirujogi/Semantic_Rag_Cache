@@ -1,149 +1,147 @@
 import os
 import sys
-import glob
 import uuid
-import pypdf
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from qdrant_client import QdrantClient
-from qdrant_client.models import VectorParams, Distance, PointStruct
+from qdrant_client.http import models
 from sentence_transformers import SentenceTransformer
 from litellm import completion
 
-# Ensure src path is in sys.path
+# Ensure src in sys.path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config import SMALL_MODEL, OPENROUTER_API_KEY, SITE_URL, SITE_NAME, calculate_cost
+from config import SMALL_MODEL, LARGE_MODEL, OPENROUTER_API_KEY, SITE_URL, SITE_NAME, calculate_cost
+from loader import load_german_pdfs
+from qdrant_db import get_shared_qdrant_client
 
-os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY
+os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY or ""
 
-COLLECTION_NAME = "baseline_docs"
-QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
-QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
-CORPUS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "corpus"))
+EMBED_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+COLLECTION_NAME = "german_docs_baseline"
+VECTOR_DIM = 768  # 768 for paraphrase-multilingual-mpnet-base-v2
 
 # Initialize clients & embedding model
-qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+qdrant = get_shared_qdrant_client()
+embedder = SentenceTransformer(EMBED_MODEL_NAME)
 
-def init_collection():
-    """Ensure Qdrant collection exists."""
-    collections = [c.name for c in qdrant_client.get_collections().collections]
+def init_collection(reset: bool = False):
+    """Ensure multilingual Qdrant collection exists with 768-dim vector space."""
+    collections = [c.name for c in qdrant.get_collections().collections]
+    if reset and COLLECTION_NAME in collections:
+        qdrant.delete_collection(COLLECTION_NAME)
+        collections.remove(COLLECTION_NAME)
+
     if COLLECTION_NAME not in collections:
-        qdrant_client.create_collection(
+        qdrant.create_collection(
             collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+            vectors_config=models.VectorParams(size=VECTOR_DIM, distance=models.Distance.COSINE)
         )
-        print(f"Created Qdrant collection: '{COLLECTION_NAME}'")
+        print(f"Created Qdrant collection '{COLLECTION_NAME}' (dim={VECTOR_DIM}).")
     else:
         print(f"Collection '{COLLECTION_NAME}' already exists.")
-
-def extract_text_from_pdf(pdf_path: str) -> str:
-    """Extract clean text from a PDF file using pypdf."""
-    text = ""
-    try:
-        reader = pypdf.PdfReader(pdf_path)
-        for page in reader.pages:
-            t = page.extract_text()
-            if t:
-                text += t + "\n"
-    except Exception as e:
-        print(f"Error reading {pdf_path}: {e}")
-    return text
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
     """Split text into word-based chunks of roughly chunk_size words with overlap."""
     words = text.split()
-    if not words:
-        return []
     chunks = []
-    i = 0
-    while i < len(words):
+    for i in range(0, len(words), max(1, chunk_size - overlap)):
         chunk = " ".join(words[i : i + chunk_size])
-        chunks.append(chunk)
-        i += chunk_size - overlap
+        if len(chunk.strip()) > 30:
+            chunks.append(chunk)
     return chunks
 
-def ingest_corpus(force: bool = False):
-    """Ingest documents from data/corpus/ into Qdrant if collection is empty or force=True."""
-    init_collection()
-    info = qdrant_client.get_collection(COLLECTION_NAME)
-    if info.points_count > 0 and not force:
-        print(f"Collection '{COLLECTION_NAME}' already contains {info.points_count} points. Skipping ingestion.")
-        return info.points_count
-
-    pdf_files = glob.glob(os.path.join(CORPUS_DIR, "*.pdf"))
-    if not pdf_files:
-        print(f"No PDF files found in {CORPUS_DIR}")
+def ingest_corpus(reset: bool = False, pdf_dir: str = "data/pdfs") -> int:
+    """Ingest German law PDFs with provenance metadata into Qdrant."""
+    init_collection(reset=reset)
+    docs = load_german_pdfs(pdf_dir)
+    if not docs:
+        print(f"No PDF documents found in {pdf_dir}")
         return 0
 
-    print(f"Starting ingestion of {len(pdf_files)} files from {CORPUS_DIR}...")
-    points = []
-    point_id_counter = 1
+    all_chunks = []
+    for doc in docs:
+        chunks = chunk_text(doc["content"], chunk_size=500, overlap=50)
+        for idx, chunk in enumerate(chunks):
+            source_name = doc["metadata"]["source"]
+            page_num = doc["metadata"]["page"]
+            all_chunks.append({
+                "text": chunk,
+                "source": source_name,
+                "page": page_num,
+                "chunk_id": f"{source_name}_p{page_num}_c{idx}",
+                "language": doc["metadata"].get("language", "de")
+            })
 
-    for file_path in pdf_files:
-        doc_id = os.path.basename(file_path)
-        full_text = extract_text_from_pdf(file_path)
-        if not full_text.strip():
-            continue
-        chunks = chunk_text(full_text, chunk_size=500, overlap=50)
+    print(f"Ingesting {len(all_chunks)} chunks from {len(docs)} pages into '{COLLECTION_NAME}'...")
 
-        # Batch encode chunks for performance
-        embeddings = embedding_model.encode(chunks, show_progress_bar=False)
-        for idx, (chunk, vector) in enumerate(zip(chunks, embeddings)):
-            points.append(PointStruct(
-                id=point_id_counter,
-                vector=vector.tolist(),
+    # Embed and upsert in batches
+    batch_size = 50
+    for i in range(0, len(all_chunks), batch_size):
+        batch = all_chunks[i : i + batch_size]
+        texts = [b["text"] for b in batch]
+        vectors = embedder.encode(texts, show_progress_bar=False).tolist()
+
+        points = [
+            models.PointStruct(
+                id=str(uuid.uuid4()),
+                vector=vectors[j],
                 payload={
-                    "doc_id": doc_id,
-                    "chunk_index": idx,
-                    "text": chunk
+                    "text": batch[j]["text"],
+                    "source": batch[j]["source"],
+                    "page": batch[j]["page"],
+                    "chunk_id": batch[j]["chunk_id"],
+                    "language": batch[j]["language"],
+                    "doc_id": batch[j]["source"],
+                    "chunk_index": j
                 }
-            ))
-            point_id_counter += 1
+            )
+            for j in range(len(batch))
+        ]
+        qdrant.upsert(collection_name=COLLECTION_NAME, points=points)
 
-            if len(points) >= 100:
-                qdrant_client.upsert(collection_name=COLLECTION_NAME, points=points)
-                points = []
-
-    if points:
-        qdrant_client.upsert(collection_name=COLLECTION_NAME, points=points)
-
-    total_count = qdrant_client.get_collection(COLLECTION_NAME).points_count
+    total_count = qdrant.get_collection(COLLECTION_NAME).points_count
     print(f"Ingestion complete. Total points in '{COLLECTION_NAME}': {total_count}")
     return total_count
 
 def retrieve_chunks(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-    """Retrieve top-k relevant chunks from Qdrant."""
-    query_vector = embedding_model.encode(query).tolist()
-    response = qdrant_client.query_points(
+    """Retrieve top-k relevant chunks from Qdrant with multilingual embeddings."""
+    init_collection(reset=False)
+    q_vec = embedder.encode(query).tolist()
+    response = qdrant.query_points(
         collection_name=COLLECTION_NAME,
-        query=query_vector,
+        query=q_vec,
         limit=top_k
     )
-    results = []
+    chunks = []
     for hit in response.points:
-        results.append({
+        payload = hit.payload or {}
+        chunks.append({
             "score": hit.score,
-            "doc_id": hit.payload.get("doc_id", "unknown"),
-            "chunk_index": hit.payload.get("chunk_index", 0),
-            "text": hit.payload.get("text", "")
+            "text": payload.get("text", ""),
+            "source": payload.get("source", payload.get("doc_id", "unknown.pdf")),
+            "page": payload.get("page", 1),
+            "chunk_id": payload.get("chunk_id", ""),
+            "language": payload.get("language", "de"),
+            "doc_id": payload.get("source", payload.get("doc_id", "unknown.pdf")),
+            "chunk_index": payload.get("chunk_index", 0)
         })
-    return results
-
+    return chunks
 
 def generate_rag_answer(query: str, retrieved_chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Generate LLM answer with inline citations using LiteLLM."""
-    context_str = ""
-    for idx, chunk in enumerate(retrieved_chunks, 1):
-        context_str += f"\n--- Document [{chunk['doc_id']}] Chunk {chunk['chunk_index']} ---\n{chunk['text']}\n"
+    """Generate bilingual RAG answer strictly citing German document sources."""
+    context_str = "\n\n".join([
+        f"[Document: {c['source']}, Page: {c['page']}]\n{c['text']}"
+        for c in retrieved_chunks
+    ])
 
     system_prompt = (
-        "You are a helpful AI research assistant. Answer the user question based strictly on the provided context.\n"
-        "Always include inline citations referring to the source document ID (e.g. [Doc: filename.pdf]).\n"
-        "If the answer is not in the context, state that clearly."
+        "You are an expert legal & administrative assistant for international students and immigrants in Germany.\n"
+        "Answer the user's question based strictly on the provided German document excerpts.\n"
+        "- If the question is in English, reply in English. If in German, reply in German.\n"
+        "- If the context does not contain the answer, explicitly state that you cannot find it in the provided documents.\n"
+        "- Always cite the document filename and page number from the context for every factual assertion."
     )
-    user_prompt = f"Context:\n{context_str}\n\nQuestion: {query}"
+    user_prompt = f"Context:\n{context_str}\n\nQuestion: {query}\n\nAnswer with document citations:"
 
     response = completion(
         model=SMALL_MODEL,
@@ -154,7 +152,8 @@ def generate_rag_answer(query: str, retrieved_chunks: List[Dict[str, Any]]) -> D
         extra_headers={
             "HTTP-Referer": SITE_URL,
             "X-Title": SITE_NAME,
-        }
+        },
+        temperature=0.1
     )
     answer = response.choices[0].message.content
     usage = response.usage
@@ -168,7 +167,7 @@ def generate_rag_answer(query: str, retrieved_chunks: List[Dict[str, Any]]) -> D
     }
 
 # FastAPI App setup
-app = FastAPI(title="Baseline RAG API", version="1.0")
+app = FastAPI(title="Multilingual German Law RAG API", version="2.0")
 
 class QueryRequest(BaseModel):
     query: str
@@ -186,11 +185,11 @@ def startup_event():
 
 @app.get("/")
 def root():
-    return {"message": "Baseline RAG API is operational"}
+    return {"message": "Multilingual German Law RAG API is operational"}
 
 @app.post("/ingest")
-def trigger_ingest(force: bool = False):
-    total = ingest_corpus(force=force)
+def trigger_ingest(reset: bool = False):
+    total = ingest_corpus(reset=reset)
     return {"status": "success", "total_points": total}
 
 @app.post("/query", response_model=QueryResponse)
@@ -209,5 +208,5 @@ def query_endpoint(request: QueryRequest):
     )
 
 if __name__ == "__main__":
-    print("Ingesting corpus...")
-    ingest_corpus(force=False)
+    print("Ingesting German law corpus into Qdrant...")
+    ingest_corpus(reset=False)

@@ -16,7 +16,7 @@ from logger import log_request, init_db, DB_PATH
 
 # Page configuration
 st.set_page_config(
-    page_title="RAG Platform: Chat & Metrics",
+    page_title="German Law RAG Platform: Chat & Metrics",
     layout="wide"
 )
 
@@ -26,15 +26,17 @@ init_collection()
 init_cache_collection()
 
 # Sidebar Navigation
-st.sidebar.title("Project 1 RAG Platform")
-page = st.sidebar.radio("Navigation", ["Chat with PDFs", "Live Metrics Dashboard"])
+st.sidebar.title("German Law RAG Platform")
+page = st.sidebar.radio("Navigation", ["Chat with Legal Corpus", "Live Metrics Dashboard"])
 
 # ==========================================
 # PAGE 1: CHAT INTERFACE
 # ==========================================
-if page == "Chat with PDFs":
-    st.header("Chat with Your Document Corpus")
-    st.markdown("Ask questions against your ingested PDF baseline. The system will route, cache, and respond using your configured models.")
+if page == "Chat with Legal Corpus":
+    st.header("German Legal & Administrative Assistant")
+    st.markdown(
+        "Ask questions about student visas (§ 16b AufenthG), work permits, healthcare, and immigration law in Germany in **English** or **German**."
+    )
 
     # Initialize chat history in session state
     if "messages" not in st.session_state:
@@ -44,9 +46,13 @@ if page == "Chat with PDFs":
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+            if message.get("sources"):
+                with st.expander("📚 Verified Legal Sources & Pages"):
+                    for s in message["sources"]:
+                        st.markdown(f"• **{s.get('source', 'Unknown')}** (Page {s.get('page', 1)})")
 
     # Accept user input
-    if prompt := st.chat_input("Ask a question about your documents..."):
+    if prompt := st.chat_input("Ask a question (e.g., 'How many days can international students work in Germany?')..."):
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -54,19 +60,21 @@ if page == "Chat with PDFs":
 
         # Process via RAG Pipeline (Cache -> Retrieval -> Router -> Escalation -> Logging)
         with st.chat_message("assistant"):
-            with st.spinner("Thinking (checking cache & routing query)..."):
+            with st.spinner("Analyzing legal corpus & checking semantic cache..."):
                 start_time = time.time()
                 prompt_str = prompt.strip()
 
                 # Define active tenant context
                 current_tenant_id = "default_tenant"
 
-                # 1. Check Semantic Cache with tenant isolation, TTL, and versioning
-                cached_res = check_cache(prompt_str, threshold=0.85, tenant_id=current_tenant_id)
-                
+                # 1. Check Multilingual Semantic Cache
+                cached_res = check_cache(prompt_str, threshold=0.88, tenant_id=current_tenant_id)
+                sources = []
+
                 if cached_res:
                     elapsed_ms = (time.time() - start_time) * 1000.0
                     response_text = cached_res["answer"]
+                    sources = cached_res.get("sources", [])
                     model_used = "semantic-cache"
                     is_cache_hit = True
                     route_used = "cache"
@@ -86,21 +94,28 @@ if page == "Chat with PDFs":
                         escalated=False
                     )
 
-                    full_display = f"{response_text}\n\n---\n**[CACHE HIT]** *Served from Qdrant Semantic Cache in {elapsed_ms:.1f}ms | Cost: $0.0000*"
+                    full_display = f"{response_text}\n\n---\n**[CACHE HIT]** *Served from Multilingual Semantic Cache in {elapsed_ms:.1f}ms | Cost: $0.0000*"
                 else:
-                    # 2. Vector Retrieval
+                    # 2. Multilingual Vector Retrieval
                     chunks = retrieve_chunks(prompt_str, top_k=5)
+
+                    # Extract unique document source references for provenance
+                    seen_sources = set()
+                    for c in chunks:
+                        key = (c.get("source", "Unknown"), c.get("page", 1))
+                        if key not in seen_sources:
+                            seen_sources.add(key)
+                            sources.append({"source": key[0], "page": key[1]})
 
                     # 3. Route & Generate
                     answer, model_used, stats, escalated = route_and_generate(prompt_str, chunks)
                     elapsed_ms = (time.time() - start_time) * 1000.0
                     cost = stats.get("cost", 0.0)
                     is_cache_hit = False
-                    route_used = "escalated" if escalated else ("large" if "gpt" in model_used else "small")
+                    route_used = "escalated" if escalated else ("large" if "gpt" in model_used or "luna" in model_used else "small")
 
-                    # 4. Save to Semantic Cache with Tenant Scope
-                    put_cache(prompt_str, answer, model_used=model_used, tenant_id=current_tenant_id)
-
+                    # 4. Save to Semantic Cache with Sources Scope
+                    put_cache(prompt_str, answer, sources=sources, model_used=model_used, tenant_id=current_tenant_id)
 
                     # 5. Log Request
                     log_request(
@@ -115,20 +130,29 @@ if page == "Chat with PDFs":
                         escalated=escalated
                     )
 
-                    badge = "ESCALATED TO LARGE MODEL" if escalated else f"Model: `{model_used}`"
+                    badge = "ESCALATED TO FRONTIER MODEL" if escalated else f"Model: `{model_used}`"
                     full_display = f"{answer}\n\n---\n{badge} | Route: `{route_used}` | Latency: `{elapsed_ms:.1f}ms` | Cost: `${cost:.5f}`"
 
                 st.markdown(full_display)
 
+                if sources:
+                    with st.expander("📚 Verified Legal Sources & Pages"):
+                        for s in sources:
+                            st.markdown(f"• **{s.get('source', 'Unknown')}** (Page {s.get('page', 1)})")
+
         # Add assistant response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": full_display})
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": full_display,
+            "sources": sources
+        })
 
 # ==========================================
 # PAGE 2: METRICS DASHBOARD
 # ==========================================
 elif page == "Live Metrics Dashboard":
     st.header("Live Cost & Performance Dashboard")
-    st.markdown("Real-time telemetry showing cache hit rates, model route distributions, and cost reductions.")
+    st.markdown("Real-time telemetry showing cache hit rates, multilingual routing distributions, and cost reductions.")
 
     if st.button("Refresh Data"):
         st.rerun()
@@ -142,7 +166,7 @@ elif page == "Live Metrics Dashboard":
         conn.close()
 
     if df.empty:
-        st.info("No telemetry logs recorded yet. Go to the **Chat with PDFs** page, ask a few questions, and come back here to see live metrics!")
+        st.info("No telemetry logs recorded yet. Go to the **Chat with Legal Corpus** page, ask questions in German/English, and come back here!")
     else:
         total_requests = len(df)
         cache_hits = df["cache_hit"].sum() if "cache_hit" in df.columns else 0
@@ -161,7 +185,7 @@ elif page == "Live Metrics Dashboard":
 
         # Layout for Charts
         chart_col1, chart_col2 = st.columns(2)
-        
+
         with chart_col1:
             st.subheader("Route Split (Cache vs Small vs Large)")
             if "route" in df.columns and not df["route"].isnull().all():
