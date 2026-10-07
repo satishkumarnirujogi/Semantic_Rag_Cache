@@ -6,8 +6,14 @@ import pandas as pd
 import streamlit as st
 from datetime import datetime
 
-# Ensure src directory is in sys.path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Ensure src directory and .venv site-packages are in sys.path
+SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
+
+VENV_SITE_PACKAGES = os.path.abspath(os.path.join(SRC_DIR, "..", ".venv", "Lib", "site-packages"))
+if os.path.exists(VENV_SITE_PACKAGES) and VENV_SITE_PACKAGES not in sys.path:
+    sys.path.insert(0, VENV_SITE_PACKAGES)
 
 from baseline_rag import retrieve_chunks, init_collection
 from cache import check_cache, put_cache, init_cache_collection
