@@ -1,0 +1,9 @@
+.venv
+.git
+.env
+qdrant_storage
+logs
+data
+tests
+**/__pycache__
+*.xlsx

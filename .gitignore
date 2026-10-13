@@ -1,27 +1,36 @@
-# Python & Environment
+# Python & environment
 .venv/
 venv/
 env/
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+.pytest_cache/
 
-# Environment Variables & Secrets
+# Secrets
 .env
 .env.local
 
-# Database & Storage
+# Databases & vector storage
 logs/*.db
+logs/*.db-wal
+logs/*.db-shm
+logs/.fuse_hidden*
+logs/*.log
 qdrant_storage/
 *.sqlite3
 
-# Corpus Data (ignoring large PDFs, preserving folder structure)
+# Corpus files (large / third-party); keep the folders
 data/corpus/*
 !data/corpus/.gitkeep
 data/pdfs/*
 !data/pdfs/.gitkeep
 
-# IDE & OS specific
+# Local review notes
+Project_Review_Findings.xlsx
+
+# IDE & OS
 .vscode/
 .idea/
 .DS_Store

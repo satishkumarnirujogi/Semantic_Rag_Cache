@@ -1,215 +1,238 @@
-# Multilingual German Law RAG & Semantic Cache Platform
+# Multi-Domain RAG with Grounded Answers, Semantic Cache & Cost-Aware Routing
 
-An enterprise-grade, cross-lingual Retrieval-Augmented Generation (RAG) platform specialized for **German Administrative & Immigration Law** (§ 16b AufenthG, international student employment, health insurance, and residency regulations). Features **Multilingual Semantic Caching**, **Intelligent Cost-Aware Query Routing**, **PyMuPDF Page-Level Provenance Extraction**, and **Real-Time Telemetry**.
+A retrieval-augmented QA system over a **multi-industry, multi-format document collection**
+(law & AI governance, SEC 10-K filings, cloud/DevOps, data engineering, software, German
+immigration law; PDF, HTML/iXBRL, Markdown, reStructuredText, DocBook SGML, text) that
 
-Designed to optimize high-throughput production LLM workloads by resolving cross-lingual queries (e.g. English query $\rightarrow$ German legal texts), eliminating redundant inference costs by up to 80%, cutting latency to sub-30ms on cache hits, and enforcing verifiable citations with exact page numbers.
+- works out **which domain and which document** a question is about before answering,
+- answers **only from the documents, with citations**, in the question's language (English/German),
+- says **"I couldn't find an answer to this question in the indexed documents"** instead of guessing,
+- caches verified answers semantically and routes each question to the cheapest adequate model.
+
+Every number in this README comes from a script in this repo; see [Evaluation](#evaluation).
 
 ---
 
-## Architecture Overview
+## How a question is answered
 
 ```mermaid
 flowchart TD
-    User([User Request / English or German]) --> API[FastAPI / Streamlit Interface]
-    
-    subgraph Cross-Lingual Caching Layer
-        API --> CacheCheck{Multilingual Semantic Cache<br/>MPNet-768 Cosine Sim >= 0.88}
-        CacheCheck -- Hit (Valid TTL & Version) --> CacheReturn[Return Cached Response + Sources<br/>0 tokens / ~20ms Latency]
-        CacheReturn --> Logger[SQLite WAL Telemetry Logger]
-    end
-
-    subgraph Multilingual Vector Retrieval Layer
-        CacheCheck -- Miss --> QdrantRetriever[Dense Vector Search<br/>paraphrase-multilingual-mpnet-base-v2]
-        Corpus[(German Law PDFs / Qdrant Storage)] --> QdrantRetriever
-        QdrantRetriever --> Context[Retrieved Top-K Context Chunks + Page Provenance]
-    end
-
-    subgraph Cost-Aware Router & LLM Layer
-        Context --> QueryClassifier{Heuristic Query Router<br/>Legal Complexity / Length / Keywords}
-        QueryClassifier -- Simple / Factoid Query --> SmallLLM[DeepSeek-v4.1-Flash<br/>Cost: ~$0.15/M in, $0.60/M out]
-        QueryClassifier -- Complex / Comparative Query --> LargeLLM[GPT-6 Luna Frontier<br/>High-Capacity Legal Reasoning]
-        
-        SmallLLM --> QualityJudge{Confidence / Weakness Check}
-        QualityJudge -- Weak Answer / Low Context --> Escalation[Escalate to Frontier Model]
-        Escalation --> LargeLLM
-    end
-
-    subgraph Response & Invalidation
-        SmallLLM -- Sufficient --> PutCache[Write to Semantic Cache<br/>Store Query, Answer & Source Provenance]
-        LargeLLM --> PutCache
-        PutCache --> Response([Synthesized Bilingual Answer with Expandable Sources])
-        Response --> Logger
-        Logger --> Dashboard[Live Streamlit Telemetry Dashboard]
-    end
+    Q([Question, EN or DE]) --> E[Embed once<br/>multilingual-e5-base]
+    E --> C{Semantic cache<br/>tenant scope · corpus version · TTL<br/>key-token + language guards<br/>exact-content or LLM equivalence check}
+    C -- verified hit --> CH([Cached answer + sources])
+    C -- miss --> H[Hybrid search<br/>dense + BM25-style sparse, RRF]
+    H --> R[Cross-encoder rerank<br/>multilingual]
+    R --> D[Document discrimination<br/>keep documents near the best one<br/>→ detected domain]
+    D --> G{Relevance gate}
+    G -- nothing relevant --> NF([Not found, no LLM call])
+    G -- relevant --> RT{Route}
+    RT -- simple --> S[Small model: gpt-6-luna]
+    RT -- complex --> L[Large model: gpt-6-sol]
+    S -- refuses but retrieval strong --> L
+    S & L --> J{JSON: answerable + valid [S#] citations?}
+    J -- no --> NF
+    J -- yes --> A([Answer + cited sources]) --> PC[Write to cache]
 ```
 
----
+### Finding the right document
+1. **Contextual chunks.** Each chunk is indexed with a header naming its document and section
+   (`Apple Inc. Form 10-K (fiscal year 2025) | PART II > Item 7`). A passage that only says
+   "the Company's total net sales" is therefore still matched to *Apple*, not Microsoft.
+2. **Hybrid search.** Dense multilingual embeddings plus a sparse BM25-style index (Qdrant IDF),
+   fused with reciprocal-rank fusion. Sparse search catches exact terms such as `§ 16b`,
+   `RFC 9111`, `Cache-Control`.
+3. **Reranking.** A multilingual cross-encoder scores every candidate against the question.
+4. **Document discrimination.** Candidates are grouped by document. Only documents scoring close
+   to the best one go into the prompt (at most 3), so similar text from the wrong document is
+   kept out. The best document's domain is reported as the question's domain.
 
-## Key Features
+### Not answering when the documents don't say
+- **Relevance gate:** if no passage is relevant enough, the answer is "not found" and no LLM is called.
+- **Grounded generation:** the model must return `{"answerable": ..., "answer": ..., "citations": [...]}`.
+  It is told to use only the excerpts, to ignore look-alike excerpts from other documents, and to
+  refuse rather than answer a different question.
+- **Citation check:** an answer without at least one citation pointing to a real excerpt is
+  treated as not grounded, and the user gets the "not found" message.
+- "Not found" answers are never cached.
 
-1. **Multilingual Embedding & Dense Retrieval (`src/baseline_rag.py`)**:
-   - Upgraded to **`sentence-transformers/paraphrase-multilingual-mpnet-base-v2`** with a **768-dimensional** vector space.
-   - Accurately matches English queries (*"Can I work as a foreign student?"*) with German legal statutes (*"Studenten dürfen 140 volle Tage im Kalenderjahr arbeiten"*).
+## Corpus
 
-2. **PyMuPDF Page-by-Page Provenance Extraction (`src/loader.py`)**:
-   - Uses PyMuPDF (`fitz` / `pymupdf`) to parse legal PDFs page-by-page.
-   - Retains structured metadata for every chunk:
-     ```json
-     {
-       "source": "202406_Studierende_Fachkraefteeinwanderung.pdf",
-       "page": 3,
-       "chunk_id": "202406_Studierende_Fachkraefteeinwanderung.pdf_p3_c0",
-       "language": "de"
-     }
-     ```
+Documents live in the folders listed in `DOCS_DIRS` (comma-separated). Domains and readable
+titles come from [`config/corpus_catalog.yaml`](config/corpus_catalog.yaml). **Files that are not
+listed are classified automatically**, by comparing their opening text with the domain descriptions.
 
-3. **Cross-Lingual Semantic Caching (`src/cache.py`)**:
-   - 768-dimensional Qdrant vector cache collection (`german_semantic_cache`) with 7-day TTL and corpus-version invalidation.
-   - **Cross-Lingual Hit Capability**: English cache entries hit semantically equivalent German queries with $>0.95$ cosine similarity.
-   - **Near-Miss Rejection**: Cosine threshold ($\ge 0.88$) prevents false positive collisions (e.g., § 16b student visas vs. § 18b skilled worker visas).
-   - Retains and serves verified source document citations directly on cache hits without re-querying the vector store.
-
-4. **Bilingual Prompting & Cost-Aware Routing (`src/router.py`)**:
-   - Automatically detects user language and responds in matching language (German or English) strictly grounded in German source excerpts.
-   - Routes factoid questions to `DeepSeek-v4.1-Flash` and complex multi-hop comparisons to `GPT-6 Luna` with transparent escalation fallback.
-
-5. **Interactive UI & Real-Time Telemetry (`src/app.py` & `src/dashboard.py`)**:
-   - Conversational chat interface featuring an expandable **"📚 Verified Legal Sources & Pages"** tray.
-   - SQLite Write-Ahead Logging (`WAL` mode) tracking token costs, latency, cache hit rates, and routing distributions.
-
----
-
-## Tech Stack
-
-| Component | Technology / Tool |
+| Domain | Documents |
 |---|---|
-| **Backend & APIs** | FastAPI, Uvicorn, Python 3.10+ |
-| **Vector Database** | Qdrant (Distributed Vector DB & Local Embedded Storage) |
-| **Multilingual Embeddings** | `sentence-transformers/paraphrase-multilingual-mpnet-base-v2` (768-dim) |
-| **LLM Gateway** | LiteLLM & OpenRouter API |
-| **Models** | DeepSeek-v4.1-Flash (Fast/Efficient), GPT-6 Luna (Frontier/Reasoning) |
-| **PDF Extraction** | PyMuPDF (`fitz` / `pymupdf`) with page-level metadata |
-| **Telemetry & DB** | SQLite (WAL Mode), Pandas |
-| **Frontend UI** | Streamlit |
+| AI governance, law & regulation | NIST AI 600-1 (EU AI Act and GDPR: see *Known gaps*) |
+| Corporate finance (SEC 10-K) | Apple 10-K FY2025, Microsoft 10-K FY2025 |
+| Cloud, infrastructure & DevOps | AWS Well-Architected (performance pillar intro), RFC 9111, Kubernetes architecture, GitHub Actions |
+| Data engineering & databases | Delta Lake protocol, Iceberg spec, Iceberg Spark queries, Parquet, Arrow, Spark SQL guide/reference, Airflow DAGs, PostgreSQL preface |
+| Software & programming | OpenAPI 3.1.0, pandas 10-minute guide, Python tutorial intro, PEP 484 |
+| German immigration & student law | 8 German/English PDFs on § 16b AufenthG, work limits, fees, health insurance |
 
----
+**Ingestion is incremental and validated** (`python -m semantic_rag.ingest`):
+- files are hashed; only new or changed files are re-indexed, and deleted files are removed;
+- point IDs are deterministic, so re-running never duplicates chunks;
+- a corpus version is derived from the file hashes plus the embedding, chunking and catalog settings,
+  and the semantic cache is cleared whenever it changes;
+- unusable files are **rejected with a reason** instead of polluting the index: empty files,
+  bot-challenge pages saved as HTML, image-only PDFs, stubs with almost no text.
+  The `/documents` endpoint and the UI's *Corpus* page list them.
 
-## Benchmark & Evaluation Results
+Chunks are measured with the embedder's own tokenizer (≤ 320 text tokens plus header, under the
+model's 512-token window), follow the document structure (headings, PDF pages, 10-K items) and
+keep provenance (`page` or `section path`) for citations.
 
-Evaluated across domain-specific German immigration law benchmarks (`src/test_german_rag.py`):
+## Known gaps in the current corpus
 
-| Metric | Baseline RAG (English/German) | Multilingual Cache + Cost-Aware System | Improvement / Impact |
-|---|---|---|---|
-| **Cross-Lingual Retrieval Score** | ~0.42 (MiniLM fails cross-lingual) | **0.71+ (MPNet Multilingual)** | **+69% Precision & Semantic Grounding** |
-| **Cross-Lingual Cache Hit Rate** | 0.0% | **96.3% Cosine Similarity** | Seamless English $\leftrightarrow$ German Caching |
-| **Near-Miss Separation** | Prone to collision | **Clean Rejection ($\ge 0.88$)** | Zero False Positive § 16b/§ 18b Hits |
-| **Average Latency (Warm Cache)** | ~1,850 ms | **< 25 ms** | **98.6% Latency Reduction** |
-| **Inference Cost (Cached Queries)**| $0.00155 / query | **$0.00000** | **100% Free on Cache Hits** |
-| **Overall Workload Cost Savings** | Baseline ($0.0387 / 25 queries) | ~$0.0098 / 25 queries | **~74% Overall Cost Reduction** |
+| File | Status |
+|---|---|
+| `01_EU_AI_Act_2024_1689.html`, `02_GDPR_2016_679.html` | Rejected: these are AWS-WAF "verify you're not a robot" pages, not the regulations. |
+| `EU AI Act Regulation.pdf` | Rejected: image-only PDF (no text layer). Download the text PDF from EUR-Lex, or OCR it. |
+| `GDPR Regulation.pdf` | Rejected: image-only. Its title is `32016R0679R(02)`, which is a **corrigendum** to the GDPR, not the regulation itself. |
+| `16_Spark_Structured_Streaming.md` | Rejected: stub page that only links elsewhere. |
+| `14_Spark_SQL_Reference.md`, `07_AWS_Well_Architected_Performance.html` | Indexed, but they are index/intro pages with little content. |
 
----
+## Evaluation
 
-## Directory Structure
+Gold set: [`data/eval/gold_set.json`](data/eval/gold_set.json), **63 questions**. 53 are answerable,
+spread over all 6 domains (English and German, each with gold document(s) and an exact evidence
+phrase). 10 must be refused: out-of-corpus questions, a year the filing doesn't cover, content the
+indexed page only links to, and a missing country breakdown.
 
-```plaintext
-Semantic_Rag_Cache/
-├── data/
-│   ├── pdfs/                      # German legal PDFs for ingestion
-│   ├── corpus/                    # General corpus directory
-│   ├── german_law_eval_set.json   # Bilingual German law benchmark questions
-│   ├── eval_set.json              # General benchmark questions & answers
-│   └── .gitkeep
-├── logs/
-│   ├── baseline_eval_results.csv  # Evaluation outputs & judge rationales
-│   └── .gitkeep
-├── src/
-│   ├── app.py                     # Streamlit Chat UI & live metrics dashboard
-│   ├── baseline_rag.py            # Multilingual 768-dim retrieval & FastAPI app
-│   ├── cache.py                   # Multilingual semantic cache (TTL, sources, versioning)
-│   ├── config.py                  # Pricing tables, environment settings & model configs
-│   ├── dashboard.py               # Standalone telemetry analysis dashboard
-│   ├── evaluate.py                # Automated LLM-as-a-judge evaluation benchmark
-│   ├── ingest.py                  # Corpus indexing utility
-│   ├── loader.py                  # PyMuPDF page-by-page extractor with provenance
-│   ├── logger.py                  # SQLite WAL concurrency-safe logging engine
-│   ├── main.py                    # FastAPI service with sources metadata
-│   ├── qdrant_db.py               # Shared singleton Qdrant client manager
-│   ├── router.py                  # Bilingual prompt engine & cost-aware router
-│   ├── test_german_rag.py         # Multilingual retrieval & cross-lingual cache tests
-│   ├── test_models.py             # OpenRouter model connectivity test
-│   └── test_system.py             # End-to-end integration test suite
-├── .env.example                   # Example environment variables template
-├── .gitignore                     # Git ignore rules
-├── docker-compose.yml             # Qdrant vector database container
-├── requirements.txt               # Python dependencies
-└── README.md                      # Project documentation
-```
+Run on 2026-10-13, Windows laptop CPU (Intel, no GPU), corpus version `1178edf2f8c2a5fb`
+(28 documents, 1,852 chunks). Raw results: `logs/eval_results_full.csv`, summary: `logs/eval_summary_full.json`.
 
----
+| Retrieval (53 answerable) | Value |
+|---|---|
+| Correct domain detected | **100%** |
+| Correct document ranked first | 96.2% |
+| Evidence chunk among the passages sent to the LLM (recall@context, ≤6) | 98.1% |
+| Evidence chunk among hybrid-search candidates (recall@20) | 100% |
+| MRR of first evidence chunk after reranking | 0.84 |
 
-## Quickstart Guide
+| Answers | Value |
+|---|---|
+| Answerable questions answered | **53 / 53** (0 false refusals) |
+| Unanswerable questions correctly refused | **10 / 10** (0 hallucinated answers) |
+| ...of which refused by the relevance gate with no LLM call | 6 |
+| Mean correctness, judged by `claude-sonnet-5.5` (1-5) | **4.75** (0 judge errors) |
+| Citation points to a gold document | 98.1% |
+| Generation cost, all 63 questions | $0.029 (judge: $0.083 extra) |
+| Latency, median / p95 (CPU reranking dominates) | 6.4 s / 10.8 s |
 
-### 1. Prerequisites
-- Python 3.10+
-- OpenRouter API Key
+The two imperfect cases: a NIST data-privacy answer that was correct but incomplete (judge 3/5), and a
+German question answered correctly from a different German brochure than the gold one.
+Retrieval-only numbers can move by about one question between runs.
 
-### 2. Clone & Setup Environment
+Retrieval settings were chosen by measurement. Reranking 30 candidates at 512 tokens
+(`logs/eval_summary_retrieval_k30_len512.json`) was **not better** than 20 candidates at 384 tokens
+(the default, `logs/eval_summary_retrieval.json`) and took about twice as long. The relevance gate
+(`MIN_RELEVANCE=0.30`) sits well below the lowest answerable score (0.80). Unanswerable questions
+that still look relevant (e.g. "Apple's net sales in **2030**") are refused by the grounded-generation
+step instead.
+
+Reproduce: `python -m semantic_rag.evaluate --retrieval-only` (free) and `python -m semantic_rag.evaluate`.
+
+## Semantic cache calibration
+
+`scripts/calibrate_cache_threshold.py` scores 15 paraphrase pairs and 14 near-miss pairs
+(different company, year, metric, unit, § paragraph, directive, ...).
+
+**Finding: no cosine threshold is safe on its own.** "Apple's *net income* in 2025" and
+"Apple's *net sales* in 2025" score 0.970, higher than most true paraphrases. A threshold with zero false
+positives (0.98) keeps only 7% of paraphrases (`logs/cache_threshold_calibration.csv`).
+
+The cache therefore uses cosine only to find candidates (≥ 0.90). A candidate must also have the same
+numbers/years/§ references and the same language. Then either its content words must match exactly,
+or the small model must confirm that both questions ask for exactly the same information. That check
+costs about $0.00003, versus a full RAG call; a failed check never produces a hit. Finally, the cached
+answer's document must be among the top documents retrieved for the new question.
+
+| Rule | Paraphrases served | Near-misses served (false positives) |
+|---|---|---|
+| cosine ≥ 0.90 only | 14 / 15 | 9 / 14 |
+| cosine ≥ 0.98 only | 1 / 15 | 0 / 14 |
+| **verified cache (default)** | **14 / 15** | **0 / 14** |
+
+A cache hit returned in about 0.2-0.9 s in the API smoke test, versus 6-20 s for a full answer.
+Cross-lingual hits are off by default (`CACHE_ALLOW_CROSS_LINGUAL`), because they would serve an
+English answer to a German question.
+
+## Models and cost
+
+[`config/models.yaml`](config/models.yaml) holds the models and their prices (with a "prices as of" date).
+
+| Role | Model (OpenRouter) | USD per 1M tokens in / out |
+|---|---|---|
+| Small (default route) | `openai/gpt-6-luna` | 0.10 / 0.50 |
+| Large (complex questions, escalation) | `openai/gpt-6-sol` | 2.00 / 10.00 |
+| Evaluation judge (different family) | `anthropic/claude-sonnet-5.5` | 2.00 / 10.00 |
+
+Routing sends comparison/"why"/long questions to the large model. A small-model refusal is
+escalated only when retrieval found strongly relevant passages (`ESCALATION_RELEVANCE`).
+
+## Quickstart
+
 ```bash
 git clone https://github.com/satishkumarnirujogi/Semantic_Rag_Cache.git
 cd Semantic_Rag_Cache
-
-# Create and activate virtual environment
 python -m venv .venv
-# On Windows:
-.venv\Scripts\activate
-# On Linux/macOS:
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+.venv\Scripts\activate            # Windows   (source .venv/bin/activate on Linux/macOS)
+pip install -r requirements.lock
+pip install --no-deps -e ".[dev]"
+copy .env.example .env            # then set OPENROUTER_API_KEY and DOCS_DIRS
 ```
 
-### 3. Configure Environment Variables
-Copy `.env.example` to `.env` and fill in your OpenRouter API key:
+Qdrant:
+- **server mode (recommended):** `docker compose up -d qdrant`, with `QDRANT_MODE=server`.
+  The API and the UI can then run at the same time.
+- **local mode:** `QDRANT_MODE=local` uses embedded storage in `./qdrant_storage`. Only one
+  process can open it at a time, so run ingest, the API **or** the UI.
+
 ```bash
-cp .env.example .env
-```
-Edit `.env`:
-```env
-OPENROUTER_API_KEY=your_openrouter_api_key_here
-SITE_URL=http://localhost:8000
-SITE_NAME=RAG-Semantic-Cache
-QDRANT_HOST=localhost
-QDRANT_PORT=6333
-SIMILARITY_THRESHOLD=0.88
+python -m semantic_rag.ingest                     # index DOCS_DIRS (first run downloads ~1.5 GB of models)
+streamlit run src/semantic_rag/app.py             # chat, corpus browser, metrics
+uvicorn semantic_rag.api:app --port 8000          # REST API (POST /query, GET /documents, POST /ingest)
+python -m semantic_rag.evaluate --retrieval-only  # free retrieval metrics
+python -m semantic_rag.evaluate                   # full evaluation (calls the LLMs)
+pytest -m "not slow"                              # fast tests: in-memory Qdrant, fake models
+pytest -m slow                                    # tests with the real embedder/reranker
 ```
 
-### 4. Ingest German Legal Corpus
+Everything in Docker: `docker compose --profile app up -d --build`. API on :8000, UI on :8501.
+Set `CORPUS_DIR` to your documents folder.
+
+Example request:
+
 ```bash
-python src/ingest.py
+curl -X POST localhost:8000/query -H "Content-Type: application/json" -d "{\"query\": \"What were Apple's total net sales in fiscal 2025?\"}"
 ```
 
-### 5. Run Multilingual Validation Suite
-```bash
-python src/test_german_rag.py
+The response contains `status` (`answered` | `not_found` | `cache_hit`), `answer`, `domain_label`,
+`primary_document`, `sources` (document, page/section, relevance), `model_used`, `cost`,
+`latency_ms` and per-stage `timings_ms`. `tenant_id` scopes the cache. It is supplied by the caller
+and **not authenticated**, so it is not access control.
+
+## Project layout
+
 ```
-
-### 6. Launch Applications
-**Interactive Streamlit Chat & Metrics App:**
-```bash
-streamlit run src/app.py
+config/models.yaml            models, prices (dated), LLM timeouts/retries
+config/corpus_catalog.yaml    domains + per-document titles/domains
+data/eval/gold_set.json       63 gold questions (53 answerable, 10 must be refused)
+src/semantic_rag/
+  settings.py                 all configuration (env + yaml)
+  loaders.py                  PDF / HTML+iXBRL / Markdown / RST / SGML / text extraction + validation
+  chunking.py                 token-based, structure-aware chunks with contextual headers
+  catalog.py                  domain metadata + automatic domain classification
+  ingest.py                   incremental hash-based ingestion, corpus versioning
+  retrieval.py                hybrid search, rerank, document discrimination
+  cache.py                    verified semantic cache
+  router.py, prompts.py       routing, grounded JSON generation, escalation
+  pipeline.py                 the single answer() used by API, UI and evaluator
+  api.py, app.py              FastAPI service, Streamlit UI (chat, corpus, metrics)
+  telemetry.py                SQLite (WAL) request log with per-stage timings
+  evaluate.py                 retrieval + answer evaluation
+scripts/                      calibration, model check, API smoke test, German PDF downloader
+tests/                        pytest suite
 ```
-*(or `.venv\Scripts\python.exe -m streamlit run src/app.py`)*
-
-**Or start the FastAPI Service:**
-```bash
-uvicorn src.main:app --reload --port 8000
-```
-
----
-
-## Resume Bullet Points
-
-- **Multilingual German Legal RAG Platform**: Architected an enterprise-grade cross-lingual RAG system using `paraphrase-multilingual-mpnet-base-v2` (768-dim) and Qdrant, enabling cross-lingual query mapping (English queries to German legal statutes) with page-level provenance extraction via PyMuPDF.
-- **Cross-Lingual Semantic Caching & Telemetry**: Implemented tenant-isolated multilingual semantic caching ($\ge 0.88$ cosine similarity threshold) with 7-day TTL and near-miss collision rejection, eliminating inference costs by up to 80% with $<25\text{ms}$ latency, monitored via SQLite WAL telemetry tracking token costs and route distributions.
-- **Cost-Aware Query Routing & Escalation**: Designed an intelligent prompt routing framework directing factoid queries to cost-efficient small models (`DeepSeek-v4.1-Flash`) and complex legal comparative queries to frontier models (`GPT-6 Luna`) with automated confidence-based escalation.

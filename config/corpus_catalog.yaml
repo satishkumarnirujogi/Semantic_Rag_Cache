@@ -1,0 +1,177 @@
+# Domains and per-document metadata for the corpus.
+#
+# Every indexed document gets a domain. Documents listed under `documents` (matched by
+# file name) use the values given here. Any other file is classified automatically by
+# comparing its opening text with the domain descriptions below, so new files work
+# without editing this file. Add an entry when you want a nicer title or the automatic
+# domain is wrong.
+
+domains:
+  ai_governance_law:
+    label: "AI governance, law & regulation"
+    description: >-
+      Laws, regulations and frameworks: EU AI Act, GDPR data protection, personal data,
+      AI risk management, generative AI risks, compliance obligations, regulators, NIST.
+  finance_sec_filings:
+    label: "Corporate finance (SEC 10-K filings)"
+    description: >-
+      Company annual reports and Form 10-K filings: revenue, net sales, net income, operating
+      income, segments, risk factors, balance sheet, cash flow, shareholders, dividends,
+      share repurchases, employees, fiscal year results.
+  cloud_devops:
+    label: "Cloud, infrastructure & DevOps"
+    description: >-
+      Cloud architecture and operations: AWS Well-Architected, performance efficiency,
+      Kubernetes clusters, control plane, nodes, HTTP caching and web protocols, CI/CD,
+      GitHub Actions workflows and runners.
+  data_engineering:
+    label: "Data engineering & databases"
+    description: >-
+      Data platforms and storage: Delta Lake transaction log, Apache Iceberg tables,
+      Parquet and Arrow columnar formats, Spark SQL, streaming, Airflow DAGs and
+      scheduling, PostgreSQL relational database.
+  software_programming:
+    label: "Software & programming"
+    description: >-
+      Programming languages and APIs: Python tutorial, type hints, pandas DataFrames,
+      OpenAPI specification for HTTP APIs, code examples.
+  german_immigration_law:
+    label: "German immigration & student law"
+    description: >-
+      Residence law for international students in Germany: Aufenthaltsgesetz, § 16b AufenthG,
+      Aufenthaltserlaubnis, visa, work permits, 140 days rule, health insurance (Krankenversicherung),
+      financing studies, Studierendenwerk advice, Erasmus mobility.
+
+documents:
+  "EU AI Act Regulation.pdf":
+    title: "EU AI Act (Regulation (EU) 2024/1689)"
+    domain: ai_governance_law
+    organization: "European Union"
+  "GDPR Regulation.pdf":
+    title: "GDPR (Regulation (EU) 2016/679)"
+    domain: ai_governance_law
+    organization: "European Union"
+  "01_EU_AI_Act_2024_1689.html":
+    title: "EU AI Act (Regulation (EU) 2024/1689)"
+    domain: ai_governance_law
+    organization: "European Union"
+  "02_GDPR_2016_679.html":
+    title: "GDPR (Regulation (EU) 2016/679)"
+    domain: ai_governance_law
+    organization: "European Union"
+  "03_NIST_AI_600_1.pdf":
+    title: "NIST AI 600-1: AI Risk Management Framework, Generative AI Profile"
+    domain: ai_governance_law
+    organization: "NIST"
+  "04_Apple_10K_FY2025.htm":
+    title: "Apple Inc. Form 10-K (fiscal year 2025)"
+    domain: finance_sec_filings
+    organization: "Apple Inc."
+  "06_Microsoft_10K_FY2025.htm":
+    title: "Microsoft Corporation Form 10-K (fiscal year 2025)"
+    domain: finance_sec_filings
+    organization: "Microsoft Corporation"
+  "07_AWS_Well_Architected_Performance.html":
+    title: "AWS Well-Architected Framework: Performance Efficiency Pillar (introduction)"
+    domain: cloud_devops
+    organization: "Amazon Web Services"
+  "08_RFC_9111_HTTP_Caching.html":
+    title: "RFC 9111: HTTP Caching"
+    domain: cloud_devops
+    organization: "IETF"
+  "09_Delta_Lake_Protocol.md":
+    title: "Delta Lake Transaction Log Protocol"
+    domain: data_engineering
+    organization: "Delta Lake"
+  "10_Iceberg_Table_Spec.md":
+    title: "Apache Iceberg Table Spec"
+    domain: data_engineering
+    organization: "Apache Iceberg"
+  "11_Parquet_Format_README.md":
+    title: "Apache Parquet Format"
+    domain: data_engineering
+    organization: "Apache Parquet"
+  "12_Arrow_Columnar_Format.rst":
+    title: "Apache Arrow Columnar Format"
+    domain: data_engineering
+    organization: "Apache Arrow"
+  "13_OpenAPI_3_1_0.md":
+    title: "OpenAPI Specification 3.1.0"
+    domain: software_programming
+    organization: "OpenAPI Initiative"
+  "14_Spark_SQL_Reference.md":
+    title: "Apache Spark SQL Reference (index page)"
+    domain: data_engineering
+    organization: "Apache Spark"
+  "15_Spark_SQL_Programming_Guide.md":
+    title: "Apache Spark SQL, DataFrames and Datasets Guide"
+    domain: data_engineering
+    organization: "Apache Spark"
+  "16_Spark_Structured_Streaming.md":
+    title: "Apache Spark Structured Streaming Programming Guide"
+    domain: data_engineering
+    organization: "Apache Spark"
+  "17_Airflow_Core_DAGs.rst":
+    title: "Apache Airflow: DAGs (core concepts)"
+    domain: data_engineering
+    organization: "Apache Airflow"
+  "18_Iceberg_Spark_Queries.md":
+    title: "Apache Iceberg: Spark Queries"
+    domain: data_engineering
+    organization: "Apache Iceberg"
+  "19_Kubernetes_Architecture.md":
+    title: "Kubernetes Cluster Architecture"
+    domain: cloud_devops
+    organization: "Kubernetes"
+  "20_Pandas_10min.rst":
+    title: "10 Minutes to pandas"
+    domain: software_programming
+    organization: "pandas"
+  "21_GitHub_Actions_Overview.md":
+    title: "Understanding GitHub Actions"
+    domain: cloud_devops
+    organization: "GitHub"
+  "22_PostgreSQL_Intro.sgml":
+    title: "PostgreSQL Documentation: Preface"
+    domain: data_engineering
+    organization: "PostgreSQL"
+  "23_Python_Tutorial_Intro.rst":
+    title: "Python Tutorial: An Informal Introduction to Python"
+    domain: software_programming
+    organization: "Python"
+  "24_PEP_484_Type_Hints.rst":
+    title: "PEP 484: Type Hints"
+    domain: software_programming
+    organization: "Python"
+  "202406_Studierende_Fachkraefteeinwanderung.pdf":
+    title: "Studierende und Fachkräfteeinwanderung (Deutsches Studierendenwerk, 2024)"
+    domain: german_immigration_law
+    organization: "Deutsches Studierendenwerk"
+  "amt-m-m31-mobilitaet-nach-der-eu-studentenrichtlinie-im-rahmen-von-erasmus-data.pdf":
+    title: "Mobilität nach der EU-Studentenrichtlinie (Erasmus), Hamburg Welcome Center"
+    domain: german_immigration_law
+    organization: "Freie und Hansestadt Hamburg"
+  "Aufenthaltsrecht-fuer-internationale-Studierende-Deutsch-Englisch.pdf":
+    title: "Aufenthaltsrecht für internationale Studierende (Deutsch-Englisch)"
+    domain: german_immigration_law
+    organization: "Landtag Schleswig-Holstein"
+  "financing-your-studies.pdf":
+    title: "Financing Your Studies (Saarland University)"
+    domain: german_immigration_law
+    organization: "Universität des Saarlandes"
+  "Flyer_Beratungsangebote_E.pdf":
+    title: "Studierendenwerk Hamburg: Counselling Services"
+    domain: german_immigration_law
+    organization: "Studierendenwerk Hamburg"
+  "Health-Insurance-Infos_ASTP.pdf":
+    title: "Health Insurance Information for International Students (Ostfalia ASTP)"
+    domain: german_immigration_law
+    organization: "Ostfalia University"
+  "info_aufenthaltserlaubnis_zum_studium_beantra.pdf":
+    title: "Aufenthaltserlaubnis zum Studium beantragen (Service Berlin)"
+    domain: german_immigration_law
+    organization: "Land Berlin"
+  "wp47-emn-studierende-drittstaaten.pdf":
+    title: "EMN Working Paper 47: Studierende aus Drittstaaten (BAMF)"
+    domain: german_immigration_law
+    organization: "BAMF"

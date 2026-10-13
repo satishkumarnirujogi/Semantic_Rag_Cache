@@ -1,0 +1,31 @@
+# LLM lineup and pricing for the cost-aware router.
+# Prices are USD per 1M tokens, read from https://openrouter.ai/api/v1/models.
+# Re-check them and update `prices_as_of` whenever you change a model.
+prices_as_of: "2026-10-13"
+
+# Cheap default model. Handles most questions.
+small:
+  id: openrouter/openai/gpt-6-luna
+  input_per_m: 0.10
+  output_per_m: 0.50
+
+# Stronger, ~20x more expensive model. Used for complex questions and as an
+# escalation when the small model cannot ground an answer although retrieval
+# found strongly relevant passages.
+large:
+  id: openrouter/openai/gpt-6-sol
+  input_per_m: 2.00
+  output_per_m: 10.00
+
+# Evaluation judge. Deliberately from a different model family than the
+# generators, so the judge does not grade its own family's answers.
+judge:
+  id: openrouter/anthropic/claude-sonnet-5.5
+  input_per_m: 2.00
+  output_per_m: 10.00
+
+llm:
+  timeout_seconds: 60
+  num_retries: 2
+  temperature: 0.0
+  max_output_tokens: 900

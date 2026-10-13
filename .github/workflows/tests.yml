@@ -1,0 +1,22 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install from lockfile (CPU torch)
+        run: |
+          pip install -r requirements.lock
+          pip install --no-deps -e ".[dev]"
+          pip install "pytest>=8,<10"
+      # Fast tests use in-memory Qdrant and fake models: no downloads, no API key
+      - name: Unit tests
+        run: pytest -m "not slow" -q
