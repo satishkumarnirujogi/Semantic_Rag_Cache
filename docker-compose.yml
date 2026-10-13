@@ -1,16 +1,50 @@
 services:
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.19.2
     container_name: qdrant_rag
     restart: unless-stopped
     ports:
-      - "6333:6333" # REST API & Web Dashboard
+      - "6333:6333" # REST API & web dashboard
       - "6334:6334" # gRPC API
     volumes:
       - qdrant_storage:/qdrant/storage
+
+  # API and UI share the Qdrant server above (embedded mode allows only one process).
+  # Start with:  docker compose --profile app up -d --build
+  api:
+    profiles: ["app"]
+    build: .
+    command: ["uvicorn", "semantic_rag.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    env_file: .env
     environment:
-      - QDRANT__SERVICE__ENABLE_STATIC_CONTENT=1
+      QDRANT_MODE: server
+      QDRANT_HOST: qdrant
+      DOCS_DIRS: /corpus/pdfs,/corpus/docs
+    volumes:
+      - ./data/pdfs:/corpus/pdfs:ro
+      - ${CORPUS_DIR:-./data/corpus}:/corpus/docs:ro
+      - ./logs:/app/logs
+      - hf_cache:/root/.cache/huggingface
+    ports:
+      - "8000:8000"
+    depends_on: [qdrant]
+
+  ui:
+    profiles: ["app"]
+    build: .
+    command: ["streamlit", "run", "src/semantic_rag/app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+    env_file: .env
+    environment:
+      QDRANT_MODE: server
+      QDRANT_HOST: qdrant
+    volumes:
+      - ./logs:/app/logs
+      - hf_cache:/root/.cache/huggingface
+    ports:
+      - "8501:8501"
+    depends_on: [qdrant]
 
 volumes:
   qdrant_storage:
     name: qdrant_rag_storage
+  hf_cache:

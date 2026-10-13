@@ -1,11 +1,6 @@
-fastapi>=0.110.0
-uvicorn>=0.28.0
-pydantic>=2.6.0
-qdrant-client>=1.8.0
-sentence-transformers>=2.5.0
-litellm>=1.30.0
-streamlit>=1.32.0
-pandas>=2.2.0
-python-dotenv>=1.0.0
-requests>=2.31.0
-pymupdf>=1.23.0
+# Direct dependencies live in pyproject.toml. For reproducible installs use the lockfile:
+#   pip install -r requirements.lock && pip install --no-deps -e ".[dev]"
+# Regenerate the lockfile after changing dependencies:
+#   uv pip compile pyproject.toml --universal --python-version 3.12 --torch-backend cpu --emit-index-url -o requirements.lock
+#   (then re-add the --extra-index-url line for the PyTorch CPU index)
+-e .

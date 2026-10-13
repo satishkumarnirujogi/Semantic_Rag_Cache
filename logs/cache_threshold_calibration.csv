@@ -1,0 +1,32 @@
+label,a,b,cosine,keys_equal,same_language,full_rule_hit
+positive,What were Apple's total net sales in fiscal 2025?,How much did Apple sell in total in fiscal year 2025?,0.972,True,True,True
+positive,What was Microsoft's revenue in fiscal year 2025?,How much revenue did Microsoft make in FY 2025?,0.9698,True,True,True
+positive,How many employees did Apple have in 2025?,What was Apple's headcount in 2025?,0.9244,True,True,True
+positive,Which RFC does RFC 9111 obsolete?,RFC 9111 replaces which older RFC?,0.97,True,True,True
+positive,What does the no-store directive mean?,What is the meaning of the no-store cache directive?,0.9577,True,True,True
+positive,Where are Delta Lake checkpoints stored?,In which directory does Delta Lake keep its checkpoint files?,0.9583,True,True,True
+positive,What is a row group in Parquet?,Can you explain what a Parquet row group is?,0.9586,True,True,True
+positive,What does a Kubernetes cluster consist of?,What are the parts of a Kubernetes cluster?,0.9747,True,True,True
+positive,How do I declare task dependencies in Airflow?,What is the way to set dependencies between Airflow tasks?,0.9571,True,True,True
+positive,What are the two main data structures in pandas?,Which two primary data structures does pandas provide?,0.9723,True,True,True
+positive,What file extension do Python stub files use?,Which extension is used for stub files in PEP 484?,0.8991,False,True,False
+positive,How does NIST define confabulation?,What is confabulation according to NIST?,0.9871,True,True,True
+positive,How many days per year can international students work in Germany?,How many days a year are foreign students allowed to work in Germany?,0.9743,True,True,True
+positive,Wie viele Tage dürfen internationale Studierende im Jahr arbeiten?,Wie viele Arbeitstage pro Jahr sind für ausländische Studierende erlaubt?,0.9616,True,True,True
+positive,Wie hoch ist die Gebühr für die Aufenthaltserlaubnis?,Was kostet die Aufenthaltserlaubnis?,0.9679,True,True,True
+cross_lingual,How many days per year can international students work in Germany?,Wie viele Tage im Jahr dürfen internationale Studierende in Deutschland arbeiten?,0.9354,True,False,False
+cross_lingual,How much does the residence permit cost?,Wie viel kostet die Aufenthaltserlaubnis?,0.8646,True,False,False
+negative,What were Apple's total net sales in fiscal 2025?,What were Microsoft's total net sales in fiscal 2025?,0.9058,True,True,False
+negative,What was Microsoft's revenue in fiscal year 2025?,What was Microsoft's revenue in fiscal year 2024?,0.9485,False,True,False
+negative,How many employees did Apple have in 2025?,How many employees did Microsoft have in 2025?,0.9162,True,True,False
+negative,What was Apple's net income in 2025?,What was Apple's net sales in 2025?,0.9704,True,True,False
+negative,Which RFC does RFC 9111 obsolete?,Which RFC does RFC 9110 obsolete?,0.9481,False,True,False
+negative,What does the no-store directive mean?,What does the no-cache directive mean?,0.9077,True,True,False
+negative,Where are Delta Lake checkpoints stored?,Where are Iceberg manifest lists stored?,0.8062,True,True,False
+negative,What is a row group in Parquet?,What is a record batch in Arrow?,0.7814,True,True,False
+negative,What does the kube-proxy component do?,What does the kube-scheduler component do?,0.9094,True,True,False
+negative,Was regelt § 16b AufenthG?,Was regelt § 18b AufenthG?,0.9646,False,True,False
+negative,How many days per year can international students work in Germany?,How many hours per week can international students work in Germany?,0.9657,True,True,False
+negative,What is the fee for issuing a residence permit for the first time?,What is the fee for extending a residence permit?,0.9364,True,True,False
+negative,What does PEP 484 say about the Any type?,What does PEP 484 say about the Optional type?,0.9197,True,True,False
+negative,What is a job in GitHub Actions?,What is a step in GitHub Actions?,0.9235,True,True,False
