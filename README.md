@@ -200,6 +200,8 @@ pytest -m "not slow"                              # fast tests: in-memory Qdrant
 pytest -m slow                                    # tests with the real embedder/reranker
 ```
 
+The UI uses a white & blue theme (Inter font) defined entirely in [`.streamlit/config.toml`](.streamlit/config.toml); change colors and fonts there, not in code.
+
 Everything in Docker: `docker compose --profile app up -d --build`. API on :8000, UI on :8501.
 Set `CORPUS_DIR` to your documents folder.
 

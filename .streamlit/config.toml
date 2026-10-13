@@ -6,3 +6,36 @@ headless = true
 
 [browser]
 gatherUsageStats = false
+
+# White & blue theme. All colors and fonts are defined here, so every widget, chart and table
+# picks them up; app code should not hard-code colors or fonts.
+[theme]
+base = "light"
+primaryColor = "#1F5FD6"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F2F6FD"
+textColor = "#13294B"
+linkColor = "#1F5FD6"
+linkUnderline = false
+borderColor = "#D7E3F5"
+dataframeBorderColor = "#D7E3F5"
+dataframeHeaderBackgroundColor = "#EAF1FC"
+showWidgetBorder = true
+codeBackgroundColor = "#EEF3FB"
+codeTextColor = "#1A4FB4"
+blueColor = "#1F5FD6"
+blueBackgroundColor = "#EAF1FC"
+blueTextColor = "#1A4FB4"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+codeFont = "JetBrains Mono:https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap, monospace"
+headingFontWeights = [700, 600, 600, 600, 600, 600]
+baseRadius = "0.6rem"
+chartCategoricalColors = ["#1F5FD6", "#5B8DEF", "#0E3A8A", "#93B6F5", "#3B7BE8", "#C3D6FA"]
+chartSequentialColors = ["#EAF1FC", "#D2E1F9", "#B5CDF5", "#93B6F5", "#6E9BEF", "#4A80E6", "#2F68DC", "#1F5FD6", "#174AAB", "#0E3A8A"]
+
+[theme.sidebar]
+backgroundColor = "#EAF1FC"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#13294B"
+borderColor = "#D7E3F5"

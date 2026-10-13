@@ -31,6 +31,8 @@ manifest = read_manifest(fresh=True) or {}
 st.sidebar.title("Multi-Domain RAG")
 page = st.sidebar.radio("Navigation", ["Ask the documents", "Corpus", "Metrics"])
 all_domains = catalog.domains()
+# Material icons render in the theme's colors (the default avatars are red/orange)
+AVATARS = {"user": ":material/person:", "assistant": ":material/auto_stories:"}
 
 
 def _render_sources(sources):
@@ -52,31 +54,40 @@ if page == "Ask the documents":
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
+    def _render(m):
+        # Theme-native elements only (markdown, caption, badge), so colors and fonts follow config.toml
+        st.markdown(m["content"])
+        if m.get("status"):
+            st.badge(m["status"].replace("_", " "), color="gray" if m["status"] == pipeline.STATUS_NOT_FOUND else "blue")
+        if m.get("meta"):
+            st.caption(m["meta"])
+        _render_sources(m.get("sources"))
+
     for m in st.session_state.messages:
-        with st.chat_message(m["role"]):
-            st.markdown(m["content"])
-            _render_sources(m.get("sources"))
+        with st.chat_message(m["role"], avatar=AVATARS[m["role"]]):
+            _render(m)
 
     if prompt := st.chat_input("e.g. What were Apple's total net sales in fiscal 2025?"):
         st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar=AVATARS["user"]):
             st.markdown(prompt)
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar=AVATARS["assistant"]):
             with st.spinner("Searching the documents..."):
                 r = pipeline.answer(prompt, use_cache=use_cache, domains=selected or None)
             if r.status == pipeline.STATUS_ERROR:
-                body = f":warning: {r.answer or 'Something went wrong.'}\n\n`{r.error}`"
+                msg = {"role": "assistant", "content": f"{r.answer or 'Something went wrong.'}\n\n`{r.error}`",
+                       "status": r.status}
             else:
-                meta = [f"status `{r.status}`"]
+                meta = []
                 if r.domain_label and r.status != pipeline.STATUS_NOT_FOUND:
-                    meta.append(f"domain **{r.domain_label}**")
-                meta += [f"model `{r.model_used or 'none'}`", f"{r.latency_ms:.0f} ms", f"${r.cost:.5f}"]
+                    meta.append(r.domain_label)
+                meta += [r.model_used or "no model call", f"{r.latency_ms:.0f} ms", f"${r.cost:.5f}"]
                 if r.escalated:
                     meta.append("escalated")
-                body = f"{r.answer}\n\n---\n<small>{' · '.join(meta)}</small>"
-            st.markdown(body, unsafe_allow_html=True)
-            _render_sources(r.sources)
-        st.session_state.messages.append({"role": "assistant", "content": body, "sources": r.sources})
+                msg = {"role": "assistant", "content": r.answer, "status": r.status, "meta": " · ".join(meta),
+                       "sources": r.sources}
+            _render(msg)
+        st.session_state.messages.append(msg)
 
 elif page == "Corpus":
     st.header("Indexed corpus")
@@ -84,7 +95,9 @@ elif page == "Corpus":
     c1, c2, c3 = st.columns(3)
     c1.metric("Documents", len(files))
     c2.metric("Chunks", manifest.get("total_chunks", 0))
-    c3.metric("Corpus version", manifest.get("corpus_version", "none"))
+    c3.metric("Domains", len({v["domain"] for v in files.values()}))
+    st.caption(f"Corpus version `{manifest.get('corpus_version', 'none')}` · "
+               f"last indexed {manifest.get('ingested_at', 'never')}")
     if files:
         df = pd.DataFrame([{"domain": catalog.domain_label(v["domain"]), "title": v["title"], "file": k,
                             "format": v["format"], "language": v["language"], "chunks": v["chunks"],
@@ -109,7 +122,7 @@ else:
         c2.metric("Cache hit rate", f"{100 * df['cache_hit'].mean():.1f}%")
         c3.metric("Not-found rate", f"{100 * (df['status'] == 'not_found').mean():.1f}%")
         c4.metric("Total LLM cost", f"${df['cost'].sum():.4f}")
-        c5.metric("p95 latency", f"{df['latency_ms'].quantile(0.95):.0f} ms")
+        c5.metric("p95 latency", f"{df['latency_ms'].quantile(0.95) / 1000:.1f} s")
         st.divider()
         a, b = st.columns(2)
         with a:
