@@ -1,0 +1,8 @@
+[server]
+# Streamlit's file watcher walks every imported module; inside `transformers` that triggers
+# lazy imports of optional packages (torchvision, ...) and floods the console with tracebacks.
+fileWatcherType = "none"
+headless = true
+
+[browser]
+gatherUsageStats = false
