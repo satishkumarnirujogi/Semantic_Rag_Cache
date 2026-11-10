@@ -12,7 +12,6 @@ immigration law; PDF, HTML/iXBRL, Markdown, reStructuredText, DocBook SGML, text
 Every number in this README comes from a script in this repo; see [Evaluation](#evaluation).
 
 ---
-
 ## How a question is answered
 
 ```mermaid
